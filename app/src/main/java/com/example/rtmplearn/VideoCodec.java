@@ -12,6 +12,7 @@ import android.util.Log;
 import android.view.Surface;
 
 import com.example.rtmplearn.util.FileUtils;
+import com.example.rtmplearn.util.LiveTaskManager;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -63,6 +64,7 @@ public class VideoCodec extends Thread {
                 buffer.get(outData);
                 RTMPPackage rtmpPackage = new RTMPPackage(outData, (bufferInfo.presentationTimeUs / 1000) - startTime);
                 screenLive.addPackage(rtmpPackage);
+                rtmpPackage.setType(RTMPPackage.RTMP_PACKET_TYPE_VIDEO);
                 mediaCodec.releaseOutputBuffer(index, false);
             }
         }
@@ -104,7 +106,7 @@ public class VideoCodec extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        start();
+        LiveTaskManager.getInstance().execute(this);
     }
 
 }

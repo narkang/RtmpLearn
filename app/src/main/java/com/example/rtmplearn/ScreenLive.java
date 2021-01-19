@@ -46,6 +46,8 @@ public class ScreenLive extends Thread {
         //开启线程
         VideoCodec videoCodec = new VideoCodec(this);
         videoCodec.startLive(mediaProjection);
+        AudioCodec audioCodec = new AudioCodec(this);
+        audioCodec.startLive();
         isLiving = true;
         while (isLiving) {
             RTMPPackage rtmpPackage = null;
@@ -55,12 +57,12 @@ public class ScreenLive extends Thread {
                 e.printStackTrace();
             }
             if (rtmpPackage.getBuffer() != null && rtmpPackage.getBuffer().length != 0) {
-                sendData(rtmpPackage.getBuffer(), rtmpPackage.getBuffer().length, rtmpPackage.getTms());
+                sendData(rtmpPackage.getBuffer(), rtmpPackage.getBuffer().length, rtmpPackage.getTms(), rtmpPackage.getType());
             }
         }
     }
 
-    private native boolean sendData(byte[] data, int len, long tms);
+    private native boolean sendData(byte[] data, int len, long tms, int type);
 
     private native boolean connect(String url);
 }

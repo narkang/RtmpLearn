@@ -19,7 +19,7 @@ public class MainActivity extends AppCompatActivity {
     private MediaProjectionManager mediaProjectionManager;
     private MediaProjection mediaProjection;
     ScreenLive screenLive;
-    String url = "rtmp://live-push.bilivideo.com/live-bvc/?streamname=live_406458993_69012454&key=6396df2a535c62d394de490738092ecf&schedule=rtmp";
+    String url = "rtmp://192.168.182.128:1935/live/ls";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,11 +30,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean checkPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{
                     Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.RECORD_AUDIO
             }, 1);
 
         }

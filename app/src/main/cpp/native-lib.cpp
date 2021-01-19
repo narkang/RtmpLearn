@@ -1,12 +1,13 @@
 #include <jni.h>
 #include <string>
 #include <android/log.h>
+
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,"ruby",__VA_ARGS__)
-extern "C"{
+extern "C" {
 #include  "librtmp/rtmp.h"
 }
 
-typedef  struct {
+typedef struct {
     RTMP *rtmp;
     int16_t sps_len;
     int8_t *sps;
@@ -26,7 +27,7 @@ void prepareVideo(int8_t *data, int len, Live *live) {
             if (data[i] == 0x00 && data[i + 1] == 0x00
                 && data[i + 2] == 0x00
                 && data[i + 3] == 0x01) {
-                if (data[i + 4]  == 0x68) {
+                if (data[i + 4] == 0x68) {
                     live->sps_len = i - 4;
 //                    new一个数组
                     live->sps = static_cast<int8_t *>(malloc(live->sps_len));
@@ -79,7 +80,7 @@ RTMPPacket *createSpsPpsPackage(Live *live) {
     packet->m_body[i++] = live->sps_len & 0xff;
 //    拷贝sps的内容
     memcpy(&packet->m_body[i], live->sps, live->sps_len);
-    i +=live->sps_len;
+    i += live->sps_len;
 //    pps
     packet->m_body[i++] = 0x01; //pps number
 //rtmp 协议
@@ -113,7 +114,7 @@ RTMPPacket *createVideoPackage(int8_t *buf, int len, const long tms, Live *live)
     if (buf[0] == 0x65) {
         //关键帧
         packet->m_body[0] = 0x17;
-    } else{
+    } else {
         //非关键帧
         packet->m_body[0] = 0x27;
     }
@@ -174,14 +175,14 @@ Java_com_example_rtmplearn_ScreenLive_connect(JNIEnv *env, jobject thiz, jstring
     int ret;
     do {
 //        实例化
-        live = (Live*)malloc(sizeof(Live));
+        live = (Live *) malloc(sizeof(Live));
         memset(live, 0, sizeof(Live));
 
         live->rtmp = RTMP_Alloc();
         RTMP_Init(live->rtmp);
         live->rtmp->Link.timeout = 10;
         LOGI("connect %s", url);
-        if (!(ret = RTMP_SetupURL(live->rtmp, (char*)url))) break;
+        if (!(ret = RTMP_SetupURL(live->rtmp, (char *) url))) break;
         RTMP_EnableWrite(live->rtmp);
         LOGI("RTMP_Connect");
         if (!(ret = RTMP_Connect(live->rtmp, 0))) break;
@@ -197,13 +198,55 @@ Java_com_example_rtmplearn_ScreenLive_connect(JNIEnv *env, jobject thiz, jstring
     return ret;
 }
 
+RTMPPacket *createAudioPacket(int8_t *buf, const int len, const int type, const long tms,
+                              Live *live) {
+
+//    组装音频包  两个字节是固定的 如果是第一次发  你就是 01       如果后面   00  或者是 01  aac
+    int body_size = len + 2;
+    RTMPPacket *packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
+    RTMPPacket_Alloc(packet, body_size);
+//         音频头
+    packet->m_body[0] = 0xAF;
+    if (type == 1) {
+//        头
+        packet->m_body[1] = 0x00;
+    }else{
+        packet->m_body[1] = 0x01;
+    }
+    memcpy(&packet->m_body[2], buf, len);
+    packet->m_packetType = RTMP_PACKET_TYPE_AUDIO;
+    packet->m_nChannel = 0x05;
+    packet->m_nBodySize = body_size;
+    packet->m_nTimeStamp = tms;
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+    packet->m_nInfoField2 = live->rtmp->m_stream_id;
+    return packet;
+}
+
+int sendAudio(int8_t *buf, int len, int type, int tms) {
+//    创建音频包   如何组装音频包
+    RTMPPacket *packet = createAudioPacket(buf, len, type, tms, live);
+    int ret=sendPacket(packet);
+    return ret;
+}
+
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_example_rtmplearn_ScreenLive_sendData(JNIEnv *env, jobject thiz, jbyteArray data_, jint len,
-                                              jlong tms) {
+Java_com_example_rtmplearn_ScreenLive_sendData(JNIEnv *env, jobject thiz, jbyteArray data_,
+                                               jint len,
+                                               jlong tms, jint type) {
     int ret;
-    jbyte *data = env->GetByteArrayElements(data_, nullptr);
-    ret = sendVideo(data, len, tms);
+    jbyte *data = env->GetByteArrayElements(data_, NULL);
+    switch (type) {
+        case 0: //video
+            ret = sendVideo(data, len, tms);
+            break;
+        default: //audio
+            ret = sendAudio(data, len, type, tms);
+            LOGI("send Audio  lenght :%d",len);
+            break;
+    }
     env->ReleaseByteArrayElements(data_, data, 0);
     return ret;
 }
