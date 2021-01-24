@@ -152,6 +152,7 @@ Java_com_example_rtmplearn_LivePusher_native_1start(JNIEnv *env, jobject thiz, j
         return;
     }
 
+    //传NULL和0都是一样的，此时是一个引用，如果传非0，内部会malloc，此时需要手动释放
     const char *path = env->GetStringUTFChars(path_, NULL);
     char *url = new char[strlen(path) + 1];
     strcpy(url, path);
