@@ -14,7 +14,7 @@ public class FileUtils {
         FileOutputStream writer = null;
         try {
             // 打开一个写文件器，构造函数中的第二个参数true表示以追加形式写文件
-            writer = new FileOutputStream(Environment.getExternalStorageDirectory() + "/codec.h265", true);
+            writer = new FileOutputStream(Environment.getExternalStorageDirectory() + "/codec.h264", true);
             writer.write(array);
             writer.write('\n');
 
@@ -44,7 +44,7 @@ public class FileUtils {
         FileWriter writer = null;
         try {
             // 打开一个写文件器，构造函数中的第二个参数true表示以追加形式写文件
-            writer = new FileWriter(Environment.getExternalStorageDirectory() + "/codecH265.txt", true);
+            writer = new FileWriter(Environment.getExternalStorageDirectory() + "/codecH264.txt", true);
             writer.write(sb.toString());
             writer.write("\n");
         } catch (IOException e) {

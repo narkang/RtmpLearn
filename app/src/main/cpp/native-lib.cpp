@@ -1,252 +1,171 @@
 #include <jni.h>
 #include <string>
-#include <android/log.h>
+#include <pthread.h>
+#include "safe_queue.h"
+#include "log.h"
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,"ruby",__VA_ARGS__)
 extern "C" {
 #include  "librtmp/rtmp.h"
 }
 
-typedef struct {
-    RTMP *rtmp;
-    int16_t sps_len;
-    int8_t *sps;
+#include "VideoChannel.h"
+#include "JavaCallHelper.h"
 
-    int16_t pps_len;
-    int8_t *pps;
-} Live;
+VideoChannel *videoChannel = 0;
+JavaCallHelper *helper = 0;
+int isStart = 0;
+//记录子线程的对象
+pthread_t pid;
+//推流标志位
+int readyPushing = 0;
+//阻塞式队列
+SafeQueue<RTMPPacket *> packets;
 
-Live *live = NULL;
+uint32_t start_time;
+//虚拟机的引用
+JavaVM *javaVM = 0;
 
-//缓存sps和pps信息
-void prepareVideo(int8_t *data, int len, Live *live) {
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+    javaVM = vm;
+    LOGI("保存虚拟机的引用");
+    return JNI_VERSION_1_4;
+}
 
-    for (int i = 0; i < len; i++) {
-//        防止越界
-        if (i + 4 < len) {
-            if (data[i] == 0x00 && data[i + 1] == 0x00
-                && data[i + 2] == 0x00
-                && data[i + 3] == 0x01) {
-                if (data[i + 4] == 0x68) {
-                    live->sps_len = i - 4;
-//                    new一个数组
-                    live->sps = static_cast<int8_t *>(malloc(live->sps_len));
-//                    sps解析出来了
-                    memcpy(live->sps, data + 4, live->sps_len);
-
-//                    解析pps
-                    live->pps_len = len - (4 + live->sps_len) - 4;
-//                    实例化PPS 的数组
-                    live->pps = static_cast<int8_t *>(malloc(live->pps_len));
-//                    rtmp  协议
-
-                    memcpy(live->pps, data + 4 + live->sps_len + 4, live->pps_len);
-                    LOGI("sps:%d pps:%d", live->sps_len, live->pps_len);
-                    break;
-                }
-            }
-
-        }
+void releasePackets(RTMPPacket *&packet) {
+    if (packet) {
+        RTMPPacket_Free(packet);
+        delete packet;
+        packet = 0;
     }
 }
 
-RTMPPacket *createSpsPpsPackage(Live *live) {
-//sps  pps 的 packaet
-    int body_size = 16 + live->sps_len + live->pps_len;
-    RTMPPacket *packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
-//    实例化数据包
-    RTMPPacket_Alloc(packet, body_size);
-    int i = 0;
-    packet->m_body[i++] = 0x17;
-    //AVC sequence header 设置为0x00
-    packet->m_body[i++] = 0x00;
-    //CompositionTime
-    packet->m_body[i++] = 0x00;
-    packet->m_body[i++] = 0x00;
-    packet->m_body[i++] = 0x00;
-    //AVC sequence header
-    packet->m_body[i++] = 0x01;
-//    原始 操作
-
-    packet->m_body[i++] = live->sps[1]; //profile 如baseline、main、 high
-
-    packet->m_body[i++] = live->sps[2]; //profile_compatibility 兼容性
-    packet->m_body[i++] = live->sps[3]; //profile level
-    packet->m_body[i++] = 0xFF;//已经给你规定好了
-    packet->m_body[i++] = 0xE1; //reserved（111） + lengthSizeMinusOne（5位 sps 个数） 总是0xe1
-//高八位
-    packet->m_body[i++] = (live->sps_len >> 8) & 0xFF;
-//    低八位
-    packet->m_body[i++] = live->sps_len & 0xff;
-//    拷贝sps的内容
-    memcpy(&packet->m_body[i], live->sps, live->sps_len);
-    i += live->sps_len;
-//    pps
-    packet->m_body[i++] = 0x01; //pps number
-//rtmp 协议
-    //pps length
-    packet->m_body[i++] = (live->pps_len >> 8) & 0xff;
-    packet->m_body[i++] = live->pps_len & 0xff;
-//    拷贝pps内容
-    memcpy(&packet->m_body[i], live->pps, live->pps_len);
-//packaet
-//视频类型
-    packet->m_packetType = RTMP_PACKET_TYPE_VIDEO;
-//
-    packet->m_nBodySize = body_size;
-//    视频 04
-    packet->m_nChannel = 0x04;
-    packet->m_nTimeStamp = 0;
-    packet->m_hasAbsTimestamp = 0;
-    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
-    packet->m_nInfoField2 = live->rtmp->m_stream_id;
-    return packet;
-}
-
-RTMPPacket *createVideoPackage(int8_t *buf, int len, const long tms, Live *live) {
-    buf += 4;
-//长度
-    RTMPPacket *packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
-    int body_size = len + 9;
-//初始化RTMP内部的body数组
-    RTMPPacket_Alloc(packet, body_size);
-
-    if (buf[0] == 0x65) {
-        //关键帧
-        packet->m_body[0] = 0x17;
-    } else {
-        //非关键帧
-        packet->m_body[0] = 0x27;
-    }
-//    固定的大小
-    packet->m_body[1] = 0x01;
-    packet->m_body[2] = 0x00;
-    packet->m_body[3] = 0x00;
-    packet->m_body[4] = 0x00;
-
-    //长度
-    packet->m_body[5] = (len >> 24) & 0xff;
-    packet->m_body[6] = (len >> 16) & 0xff;
-    packet->m_body[7] = (len >> 8) & 0xff;
-    packet->m_body[8] = (len) & 0xff;
-
-    //数据
-    memcpy(&packet->m_body[9], buf, len);
-    packet->m_packetType = RTMP_PACKET_TYPE_VIDEO;
-    packet->m_nBodySize = body_size;
-    packet->m_nChannel = 0x04;
-    packet->m_nTimeStamp = tms;
-    packet->m_hasAbsTimestamp = 0;
-    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
-    packet->m_nInfoField2 = live->rtmp->m_stream_id;
-    return packet;
-}
-
-int sendPacket(RTMPPacket *packet) {
-    int r = RTMP_SendPacket(live->rtmp, packet, 1);
-    RTMPPacket_Free(packet);
-    free(packet);
-    return r;
-}
-
-int sendVideo(int8_t *buf, int len, long tms) {
-    int ret = 0;
-    if (buf[4] == 0x67) {
-//        缓存sps 和pps 到全局遍历 不需要推流
-        if (live && (!live->pps || !live->sps)) {
-            prepareVideo(buf, len, live);
-        }
-        return ret;
-    }
-    if (buf[4] == 0x65) {//关键帧
-        RTMPPacket *packet = createSpsPpsPackage(live);
-        sendPacket(packet);
-    }
-    RTMPPacket *packet2 = createVideoPackage(buf, len, tms, live);
-    ret = sendPacket(packet2);
-    return ret;
-}
-
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_example_rtmplearn_ScreenLive_connect(JNIEnv *env, jobject thiz, jstring url_) {
-
-    const char *url = env->GetStringUTFChars(url_, 0);
-    int ret;
+void *start(void *arg){
+    char *url = static_cast<char *>(arg);
+    RTMP *rtmp = 0;
     do {
-//        实例化
-        live = (Live *) malloc(sizeof(Live));
-        memset(live, 0, sizeof(Live));
+        rtmp = RTMP_Alloc();
+        if(!rtmp){
+            LOGI("rtmp创建失败");
+            break;
+        }
+        RTMP_Init(rtmp);
+        //设置超时时间
+        rtmp->Link.timeout = 10;
+        int ret = RTMP_SetupURL(rtmp, (char *) url);
+        if(!ret){
+            LOGI("rtmp设置地址失败:%s", url);
+            break;
+        }
+        //开启输出模式
+        RTMP_EnableWrite(rtmp);
+        ret = RTMP_Connect(rtmp, 0);
+        if(!ret){
+            LOGI("rtmp连接地址失败:%s", url);
+            break;
+        }
+        ret = RTMP_ConnectStream(rtmp, 0);
+        if (!ret) {
+            LOGI("连接失败");
+            break;
+        }
+        LOGI("连接成功");
+        //连接成功，不让重复了
+        isStart = 1;
 
-        live->rtmp = RTMP_Alloc();
-        RTMP_Init(live->rtmp);
-        live->rtmp->Link.timeout = 10;
-        LOGI("connect %s", url);
-        if (!(ret = RTMP_SetupURL(live->rtmp, (char *) url))) break;
-        RTMP_EnableWrite(live->rtmp);
-        LOGI("RTMP_Connect");
-        if (!(ret = RTMP_Connect(live->rtmp, 0))) break;
-        LOGI("RTMP_ConnectStream ");
-        if (!(ret = RTMP_ConnectStream(live->rtmp, 0))) break;
-        LOGI("connect success");
+        //准备好了，可以开始推流了
+        readyPushing = 1;
+        //记录一个开始时间
+        start_time = RTMP_GetTime();
+        packets.setWork(1);
+        RTMPPacket  *packet = 0;
+        //循环从队列取包 然后发送
+        while (isStart){
+            packets.pop(packet);
+            LOGI("收到编码好的数据了");
+            if (!isStart) {
+                break;
+            }
+            if (!packet) {
+                continue;
+            }
+            // 给rtmp的流id
+            packet->m_nInfoField2 = rtmp->m_stream_id;
+            //发送包 1:加入队列发送
+            ret = RTMP_SendPacket(rtmp, packet, 1);
+            releasePackets(packet);
+            if (!ret) {
+                LOGI("发送数据失败");
+                break;
+            }
+        }
+        releasePackets(packet);
     } while (0);
-    if (!ret && live) {
-        free(live);
-        live = nullptr;
+    if (rtmp) {
+        RTMP_Close(rtmp);
+        RTMP_Free(rtmp);
     }
-    env->ReleaseStringUTFChars(url_, url);
-    return ret;
-}
-
-RTMPPacket *createAudioPacket(int8_t *buf, const int len, const int type, const long tms,
-                              Live *live) {
-
-//    组装音频包  两个字节是固定的 如果是第一次发  你就是 01       如果后面   00  或者是 01  aac
-    int body_size = len + 2;
-    RTMPPacket *packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
-    RTMPPacket_Alloc(packet, body_size);
-//         音频头
-    packet->m_body[0] = 0xAF;
-    if (type == 1) {
-//        头
-        packet->m_body[1] = 0x00;
-    }else{
-        packet->m_body[1] = 0x01;
-    }
-    memcpy(&packet->m_body[2], buf, len);
-    packet->m_packetType = RTMP_PACKET_TYPE_AUDIO;
-    packet->m_nChannel = 0x05;
-    packet->m_nBodySize = body_size;
-    packet->m_nTimeStamp = tms;
-    packet->m_hasAbsTimestamp = 0;
-    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
-    packet->m_nInfoField2 = live->rtmp->m_stream_id;
-    return packet;
-}
-
-int sendAudio(int8_t *buf, int len, int type, int tms) {
-//    创建音频包   如何组装音频包
-    RTMPPacket *packet = createAudioPacket(buf, len, type, tms, live);
-    int ret=sendPacket(packet);
-    return ret;
+    delete url;
+    return 0;
 }
 
 extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_example_rtmplearn_ScreenLive_sendData(JNIEnv *env, jobject thiz, jbyteArray data_,
-                                               jint len,
-                                               jlong tms, jint type) {
-    int ret;
-    jbyte *data = env->GetByteArrayElements(data_, NULL);
-    switch (type) {
-        case 0: //video
-            ret = sendVideo(data, len, tms);
-            break;
-        default: //audio
-            ret = sendAudio(data, len, type, tms);
-            LOGI("send Audio  lenght :%d",len);
-            break;
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz) {
+    helper = new JavaCallHelper(javaVM, env, thiz);
+    //实例化编码层
+    videoChannel = new VideoChannel;
+    videoChannel->javaCallHelper = helper;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1setVideoEncInfo(JNIEnv *env, jobject thiz, jint width,
+                                                              jint height, jint fps, jint bitrate) {
+    if(videoChannel){
+        videoChannel -> setVideoEncInfo(width, height, fps, bitrate);
     }
-    env->ReleaseByteArrayElements(data_, data, 0);
-    return ret;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1start(JNIEnv *env, jobject thiz, jstring path_) {
+
+    //避免重复连接
+    if(isStart){
+        return;
+    }
+
+    const char *path = env->GetStringUTFChars(path_, NULL);
+    char *url = new char[strlen(path) + 1];
+    strcpy(url, path);
+
+    //开始直播
+//    isStart = 1;
+    //开子线程链接服务器
+    pthread_create(&pid, 0, start, url);
+    env->ReleaseStringUTFChars(path_, path);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1pushVideo(JNIEnv *env, jobject thiz,
+                                                        jbyteArray data_) {
+    if(!videoChannel || !readyPushing){
+        return;
+    }
+    jbyte  *data = env -> GetByteArrayElements(data_, NULL);
+    videoChannel -> encodeData(data);
+    env -> ReleaseByteArrayElements(data_, data, 0);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1stop(JNIEnv *env, jobject thiz) {
+    // TODO: implement native_stop()
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1release(JNIEnv *env, jobject thiz) {
+    // TODO: implement native_release()
 }

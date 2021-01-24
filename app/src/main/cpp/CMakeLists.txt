@@ -4,27 +4,26 @@ project("rtmplearn")
 
 add_subdirectory(librtmp)
 
-add_library( # Sets the name of the library.
-             native-lib
+message("----------------------")
+message(${CMAKE_BUILD_TYPE})
+message(${ANDROID_PLATFORM})
+message(${CMAKE_SOURCE_DIR})
+message(${ANDROID_ABI})
 
-             # Sets the library as a shared library.
+file(GLOB cpp_source *.cpp)
+#头文件成功引入
+include_directories(${CMAKE_SOURCE_DIR}/x264/${ANDROID_ABI}/include)
+#静态库 FFmpeg
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${CMAKE_SOURCE_DIR}/x264/${ANDROID_ABI}/lib")
+
+add_library( native-lib
              SHARED
+             ${cpp_source})
 
-             # Provides a relative path to your source file(s).
-             native-lib.cpp )
-
-find_library( # Sets the name of the path variable.
-              log-lib
-
-              # Specifies the name of the NDK library that
-              # you want CMake to locate.
+find_library( log-lib
               log )
 
-target_link_libraries( # Specifies the target library.
-                       native-lib
-
-                       # Links the target library to the log library
-                       # included in the NDK.
+target_link_libraries( native-lib
                        ${log-lib}
-
+                        x264
                         rtmp)
