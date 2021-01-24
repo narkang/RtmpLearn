@@ -6,6 +6,7 @@
 #include "VideoChannel.h"
 #include "log.h"
 
+
 void VideoChannel::setVideoEncInfo(int width, int height, int fps, int bitrate) {
 
     LOGI("width = %d , height = %d", width, height);
@@ -84,14 +85,129 @@ void VideoChannel::encodeData(int8_t *data) {
 
     x264_encoder_encode(videoCodec, &pp_nals, &pi_nal, pic_in, &pic_out);
     LOGI("编码出来的帧数 %d", pi_nal);  //sps和pps是单独编码为一帧
+
+    uint8_t sps[100];
+    uint8_t pps[100];
+    int sps_len, pps_len;
+
     if (pi_nal > 0) {
         for (int i = 0; i < pi_nal; ++i) {
             //p_payload 编码好的数据 i_payload 编码出来一帧数据长度
             LOGI("输出索引:  %d  输出长度 %d", i, pi_nal);
             javaCallHelper->postH264(reinterpret_cast<char *>(pp_nals[i].p_payload),
                                      pp_nals[i].i_payload, THREAD_MAIN);
+
+            if (pp_nals[i].i_type == NAL_SPS) {
+                sps_len = pp_nals[i].i_payload - 4;
+                memcpy(sps, pp_nals[i].p_payload + 4, sps_len);
+            } else if (pp_nals[i].i_type == NAL_PPS) {
+                pps_len = pp_nals[i].i_payload - 4;
+                memcpy(pps, pp_nals[i].p_payload + 4, pps_len);
+                sendSpsPps(sps, pps, sps_len, pps_len);
+            } else{
+                //关键帧和非关键帧
+                sendFrame(pp_nals[i].i_type, pp_nals[i].i_payload, pp_nals[i].p_payload);
+            }
         }
     }
+}
+
+void VideoChannel::sendSpsPps(uint8_t *sps, uint8_t *pps, int sps_len, int pps_len) {
+
+    //sps  pps 的 packaet
+    RTMPPacket *packet = new RTMPPacket;
+    int body_size = 16 + sps_len + pps_len;
+//    实例化数据包
+    RTMPPacket_Alloc(packet, body_size);
+    int i = 0;
+    packet->m_body[i++] = 0x17;
+    //AVC sequence header 设置为0x00
+    packet->m_body[i++] = 0x00;
+    //CompositionTime
+    packet->m_body[i++] = 0x00;
+    packet->m_body[i++] = 0x00;
+    packet->m_body[i++] = 0x00;
+    //AVC sequence header
+    packet->m_body[i++] = 0x01;
+//    原始 操作
+
+    packet->m_body[i++] = sps[1]; //profile 如baseline、main、 high
+
+    packet->m_body[i++] = sps[2]; //profile_compatibility 兼容性
+    packet->m_body[i++] = sps[3]; //profile level
+    packet->m_body[i++] = 0xFF;//已经给你规定好了
+    packet->m_body[i++] = 0xE1; //reserved（111） + lengthSizeMinusOne（5位 sps 个数） 总是0xe1
+//高八位
+    packet->m_body[i++] = (sps_len >> 8) & 0xFF;
+//    低八位
+    packet->m_body[i++] = sps_len & 0xff;
+//    拷贝sps的内容
+    memcpy(&packet->m_body[i], sps, sps_len);
+    i += sps_len;
+//    pps
+    packet->m_body[i++] = 0x01; //pps number
+//rtmp 协议
+    //pps length
+    packet->m_body[i++] = (pps_len >> 8) & 0xff;
+    packet->m_body[i++] = pps_len & 0xff;
+//    拷贝pps内容
+    memcpy(&packet->m_body[i], pps, pps_len);
+//packaet
+//视频类型
+    packet->m_packetType = RTMP_PACKET_TYPE_VIDEO;
+//
+    packet->m_nBodySize = body_size;
+//    视频 04
+    packet->m_nChannel = 0x04;
+    packet->m_nTimeStamp = 0;
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+
+    if (this->callback) {
+        this->callback(packet);
+    }
+
+}
+
+void VideoChannel::sendFrame(int type, int len, uint8_t *buf) {
+    buf += 4;
+    RTMPPacket *packet = new RTMPPacket;
+    int body_size = len + 9;
+    RTMPPacket_Alloc(packet, body_size);
+
+    if (buf[0] == 0x65) {
+        packet->m_body[0] = 0x17;
+        LOGI("发送关键帧 data");
+    } else{
+        packet->m_body[0] = 0x27;
+        LOGI("发送非关键帧 data");
+    }
+//    固定的大小
+    packet->m_body[1] = 0x01;
+    packet->m_body[2] = 0x00;
+    packet->m_body[3] = 0x00;
+    packet->m_body[4] = 0x00;
+
+    //长度
+    packet->m_body[5] = (len >> 24) & 0xff;
+    packet->m_body[6] = (len >> 16) & 0xff;
+    packet->m_body[7] = (len >> 8) & 0xff;
+    packet->m_body[8] = (len) & 0xff;
+
+    //数据
+    memcpy(&packet->m_body[9], buf, len);
+    packet->m_packetType = RTMP_PACKET_TYPE_VIDEO;
+    packet->m_nBodySize = body_size;
+    packet->m_nChannel = 0x04;
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+}
+
+
+void VideoChannel::setVideoCallback(VideoCallback callback) {
+
+    this->callback = callback;
+
 }
 
 VideoChannel::VideoChannel() {
@@ -101,3 +217,5 @@ VideoChannel::VideoChannel() {
 VideoChannel::~VideoChannel() {
 
 }
+
+

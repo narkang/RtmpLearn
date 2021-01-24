@@ -39,12 +39,12 @@ void releasePackets(RTMPPacket *&packet) {
     }
 }
 
-void *start(void *arg){
+void *start(void *arg) {
     char *url = static_cast<char *>(arg);
     RTMP *rtmp = 0;
     do {
         rtmp = RTMP_Alloc();
-        if(!rtmp){
+        if (!rtmp) {
             LOGI("rtmp创建失败");
             break;
         }
@@ -52,14 +52,14 @@ void *start(void *arg){
         //设置超时时间
         rtmp->Link.timeout = 10;
         int ret = RTMP_SetupURL(rtmp, (char *) url);
-        if(!ret){
+        if (!ret) {
             LOGI("rtmp设置地址失败:%s", url);
             break;
         }
         //开启输出模式
         RTMP_EnableWrite(rtmp);
         ret = RTMP_Connect(rtmp, 0);
-        if(!ret){
+        if (!ret) {
             LOGI("rtmp连接地址失败:%s", url);
             break;
         }
@@ -77,9 +77,9 @@ void *start(void *arg){
         //记录一个开始时间
         start_time = RTMP_GetTime();
         packets.setWork(1);
-        RTMPPacket  *packet = 0;
+        RTMPPacket *packet = 0;
         //循环从队列取包 然后发送
-        while (isStart){
+        while (isStart) {
             packets.pop(packet);
             LOGI("收到编码好的数据了");
             if (!isStart) {
@@ -108,6 +108,21 @@ void *start(void *arg){
     return 0;
 }
 
+//编码层的回调
+void callback(RTMPPacket *packet) {
+    if (packet) {
+
+        //避免oom
+        if(packets.size() > 50){
+            packets.clear();
+        }
+
+        packet->m_nTimeStamp = RTMP_GetTime() - start_time;
+        packets.push(packet);
+    }
+}
+
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz) {
@@ -115,14 +130,16 @@ Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz) {
     //实例化编码层
     videoChannel = new VideoChannel;
     videoChannel->javaCallHelper = helper;
+    //设置回调
+    videoChannel->setVideoCallback(callback);
 }
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1setVideoEncInfo(JNIEnv *env, jobject thiz, jint width,
                                                               jint height, jint fps, jint bitrate) {
-    if(videoChannel){
-        videoChannel -> setVideoEncInfo(width, height, fps, bitrate);
+    if (videoChannel) {
+        videoChannel->setVideoEncInfo(width, height, fps, bitrate);
     }
 }
 
@@ -131,7 +148,7 @@ JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1start(JNIEnv *env, jobject thiz, jstring path_) {
 
     //避免重复连接
-    if(isStart){
+    if (isStart) {
         return;
     }
 
@@ -150,12 +167,12 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1pushVideo(JNIEnv *env, jobject thiz,
                                                         jbyteArray data_) {
-    if(!videoChannel || !readyPushing){
+    if (!videoChannel || !readyPushing) {
         return;
     }
-    jbyte  *data = env -> GetByteArrayElements(data_, NULL);
-    videoChannel -> encodeData(data);
-    env -> ReleaseByteArrayElements(data_, data, 0);
+    jbyte *data = env->GetByteArrayElements(data_, NULL);
+    videoChannel->encodeData(data);
+    env->ReleaseByteArrayElements(data_, data, 0);
 }
 
 extern "C"
