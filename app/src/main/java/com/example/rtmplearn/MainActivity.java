@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.TextView;
 
@@ -27,11 +28,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        SurfaceView surfaceView = findViewById(R.id.surfaceView);
+        TextureView textureView = findViewById(R.id.textureView);
         checkPermission();
-        livePusher = new LivePusher(this, 800, 480, 800_000, 10, Camera.CameraInfo.CAMERA_FACING_BACK);
-        //设置摄像头预览的界面
-        livePusher.setPreviewDisplay(surfaceView.getHolder());
+        livePusher = new LivePusher(this, 480, 640, 800_000, 10, textureView);
     }
 
     public boolean checkPermission() {

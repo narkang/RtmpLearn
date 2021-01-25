@@ -35,3 +35,8 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
     }
 
 }
+
+JavaCallHelper::~JavaCallHelper() {
+    env->DeleteGlobalRef(jobj);
+    jobj = 0;
+}

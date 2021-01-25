@@ -1,12 +1,12 @@
 package com.example.rtmplearn;
 
-import android.app.Activity;
 import android.util.Log;
 import android.view.SurfaceHolder;
+import android.view.TextureView;
+
+import androidx.lifecycle.LifecycleOwner;
 
 import com.example.rtmplearn.util.FileUtils;
-
-import java.io.File;
 
 public class LivePusher {
 
@@ -17,20 +17,29 @@ public class LivePusher {
     private AudioChannel audioChannel;
     private VideoChannel videoChannel;
 
-    public LivePusher(Activity activity, int width, int height, int bitrate,
-                      int fps, int cameraId) {
+    public LivePusher(LifecycleOwner lifecycleOwner, int width, int height, int bitrate,
+                      int fps, TextureView textureView) {
         native_init();
-        videoChannel = new VideoChannel(this,activity, width, height, bitrate, fps, cameraId);
+        videoChannel = new VideoChannel(lifecycleOwner, textureView, width, height, bitrate, fps);
         audioChannel = new AudioChannel();
-    }
 
-    public void setPreviewDisplay(SurfaceHolder surfaceHolder) {
-        videoChannel.setPreviewDisplay(surfaceHolder);
+        videoChannel.setLivePushInterface(new VideoChannel.LivePushInterface() {
+            @Override
+            public void setVideoEncInfo(int width, int height, int fps, int bitrate) {
+                native_setVideoEncInfo(width, height, fps, bitrate);
+            }
+
+            @Override
+            public void pushVideo(byte[] data) {
+                native_pushVideo(data);
+            }
+        });
     }
 
     public void switchCamera() {
         videoChannel.switchCamera();
     }
+
     private void onPrepare(boolean isConnect) {
         //通知UI
     }
@@ -64,7 +73,5 @@ public class LivePusher {
     public native void native_pushVideo(byte[] data);
 
     public native void native_stop();
-
-    public native void native_release();
 }
 

@@ -24,6 +24,7 @@ SafeQueue<RTMPPacket *> packets;
 uint32_t start_time;
 //虚拟机的引用
 JavaVM *javaVM = 0;
+RTMP *rtmp = 0;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     javaVM = vm;
@@ -41,7 +42,6 @@ void releasePackets(RTMPPacket *&packet) {
 
 void *start(void *arg) {
     char *url = static_cast<char *>(arg);
-    RTMP *rtmp = 0;
     do {
         rtmp = RTMP_Alloc();
         if (!rtmp) {
@@ -179,11 +179,19 @@ Java_com_example_rtmplearn_LivePusher_native_1pushVideo(JNIEnv *env, jobject thi
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1stop(JNIEnv *env, jobject thiz) {
-    // TODO: implement native_stop()
-}
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_example_rtmplearn_LivePusher_native_1release(JNIEnv *env, jobject thiz) {
-    // TODO: implement native_release()
+    if(rtmp) {
+        RTMP_Close(rtmp);
+        RTMP_Free(rtmp);
+        rtmp = 0;
+    }
+    if (videoChannel) {
+        delete (videoChannel);
+        videoChannel = 0;
+    }
+    if (helper) {
+        delete (helper);
+        helper = 0;
+    }
+
 }

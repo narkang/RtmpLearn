@@ -14,6 +14,9 @@
 class JavaCallHelper {
 
 public:
+
+    ~JavaCallHelper();
+
     JavaCallHelper(JavaVM *_javaVM, JNIEnv *_env, jobject &_obj);
 
     void postH264(char *data,int length, int thread = THREAD_MAIN);
