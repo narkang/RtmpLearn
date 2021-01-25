@@ -42,6 +42,20 @@ void releasePackets(RTMPPacket *&packet) {
     }
 }
 
+//编码层的回调
+void callback(RTMPPacket *packet) {
+    if (packet) {
+
+        //避免oom
+        if(packets.size() > 50){
+            packets.clear();
+        }
+
+        packet->m_nTimeStamp = RTMP_GetTime() - start_time;
+        packets.push(packet);
+    }
+}
+
 void *start(void *arg) {
     char *url = static_cast<char *>(arg);
     do {
@@ -79,6 +93,9 @@ void *start(void *arg) {
         //记录一个开始时间
         start_time = RTMP_GetTime();
         packets.setWork(1);
+
+        callback(audioChannel->getAudioConfig());
+
         RTMPPacket *packet = 0;
         //循环从队列取包 然后发送
         while (isStart) {
@@ -109,21 +126,6 @@ void *start(void *arg) {
     delete url;
     return 0;
 }
-
-//编码层的回调
-void callback(RTMPPacket *packet) {
-    if (packet) {
-
-        //避免oom
-        if(packets.size() > 50){
-            packets.clear();
-        }
-
-        packet->m_nTimeStamp = RTMP_GetTime() - start_time;
-        packets.push(packet);
-    }
-}
-
 
 extern "C"
 JNIEXPORT void JNICALL

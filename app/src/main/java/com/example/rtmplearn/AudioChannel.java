@@ -24,12 +24,17 @@ public class AudioChannel {
 
         executor = Executors.newSingleThreadExecutor();
 
-        minBufferSize = AudioRecord.getMinBufferSize(44100,
-                AudioFormat.CHANNEL_IN_MONO,
+        minBufferSize = AudioRecord.getMinBufferSize(sampleRate,
+                AudioFormat.CHANNEL_IN_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT);
+
+        int audioGetSamples = livePushInterface.audioGetSamples() * 2;
+        minBufferSize = audioGetSamples > minBufferSize? audioGetSamples:minBufferSize;
+        Log.i("ruby", "audioGetSamples: " + audioGetSamples + "  minBufferSize: " + minBufferSize);
+
         audioRecord = new AudioRecord(
-                MediaRecorder.AudioSource.MIC, 44100,
-                AudioFormat.CHANNEL_IN_MONO,
+                MediaRecorder.AudioSource.MIC, sampleRate,
+                AudioFormat.CHANNEL_IN_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT, minBufferSize);
     }
 
@@ -58,7 +63,7 @@ public class AudioChannel {
                 if (len > 0) {
                     if(livePushInterface != null){
 //                        FileUtils.byteToString(bytes);
-//                        livePushInterface.audioPush(bytes);
+                        livePushInterface.audioPush(bytes);
                     }
                 }
             }

@@ -3,6 +3,7 @@
 //
 
 #include <cstring>
+#include <malloc.h>
 #include "AudioChannel.h"
 #include "log.h"
 
@@ -25,15 +26,39 @@ void AudioChannel::init(int sampleRate, int channels) {
     //16位
     config->inputFormat = FAAC_INPUT_16BIT;
     // 编码出原始数据；0 = Raw; 1 = ADTS
-    config->outputFormat = 1;
+    config->outputFormat = 0; //aac裸流
+    //让配置生效
     faacEncSetConfiguration(audioCodec, config);
 
     //输出缓冲区 编码后的数据 用这个缓冲区来保存
-    buffer = new u_char[maxOutputBytes];
+//    buffer = new u_char[maxOutputBytes];
+    buffer = static_cast<u_char *>(malloc(maxOutputBytes));
 }
 
 u_long AudioChannel::getSamples() {
     return inputSamples;
+}
+
+RTMPPacket *AudioChannel::getAudioConfig() {
+    u_char *buf;
+    u_long len;
+
+    faacEncGetDecoderSpecificInfo(audioCodec, &buf, &len);
+
+    RTMPPacket  *packet = new RTMPPacket;
+    RTMPPacket_Alloc(packet, len + 2);
+
+    packet->m_body[0] = 0xAF;
+    packet->m_body[1] = 0x00;
+    memcpy(&packet->m_body[2], buf, len);
+
+    packet -> m_hasAbsTimestamp = 0;
+    packet -> m_nBodySize = len + 2;
+    packet -> m_packetType = RTMP_PACKET_TYPE_AUDIO;
+    packet -> m_nChannel = 0x11;
+    packet -> m_headerType = RTMP_PACKET_SIZE_LARGE;
+
+    return packet;
 }
 
 void AudioChannel::encodeData(int8_t *data) {

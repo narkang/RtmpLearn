@@ -18,7 +18,7 @@ public class LivePusher {
 
     public LivePusher(LifecycleOwner lifecycleOwner, int width, int height, int bitrate, int sampleRate,
                       int fps, TextureView textureView) {
-        native_init(sampleRate, 1);
+        native_init(sampleRate, 2);
         videoChannel = new VideoChannel(lifecycleOwner, textureView, width, height, bitrate, fps);
 
         videoChannel.setLivePushInterface(livePushInterface);

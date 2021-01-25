@@ -19,6 +19,7 @@ public:
     void init(int sampleRate, int channels);
     void setAudioCallback(AudioCallback callback);
     u_long getSamples();
+    RTMPPacket* getAudioConfig();
     void encodeData(int8_t *data);
 
 private:
