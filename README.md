@@ -1,4 +1,8 @@
 # RtmpLearn
-Rtmp学习   
+Rtmp学习使用
 
-音频和视频Rtmp推流学习，使用MediaCodec硬编 
+mediacodec_encode_mediaproject分支 视频源使用mediaproject，音频源使用AudioRecord，使用mediacodec硬编，RTMP协议通信
+
+soft_encode_camera1分支 视频源使用camera1，使用x264软编，RTMP协议通信
+
+soft_encode_camerax分支 视频源使用camerax，使用x264和faac软编，RTMP协议通信
