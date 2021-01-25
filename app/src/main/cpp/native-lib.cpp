@@ -10,8 +10,10 @@ extern "C" {
 
 #include "VideoChannel.h"
 #include "JavaCallHelper.h"
+#include "AudioChannel.h"
 
 VideoChannel *videoChannel = 0;
+AudioChannel *audioChannel = 0;
 JavaCallHelper *helper = 0;
 int isStart = 0;
 //记录子线程的对象
@@ -125,13 +127,17 @@ void callback(RTMPPacket *packet) {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz) {
+Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz, jint sampleRate, jint channels) {
     helper = new JavaCallHelper(javaVM, env, thiz);
     //实例化编码层
     videoChannel = new VideoChannel;
     videoChannel->javaCallHelper = helper;
+
+    audioChannel = new AudioChannel;
+    audioChannel->init(sampleRate, channels);
     //设置回调
     videoChannel->setVideoCallback(callback);
+    audioChannel->setAudioCallback(callback);
 }
 
 extern "C"
@@ -174,6 +180,29 @@ Java_com_example_rtmplearn_LivePusher_native_1pushVideo(JNIEnv *env, jobject thi
     jbyte *data = env->GetByteArrayElements(data_, NULL);
     videoChannel->encodeData(data);
     env->ReleaseByteArrayElements(data_, data, 0);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1audioGetSamples(JNIEnv *env, jobject thiz) {
+    if(audioChannel){
+        return audioChannel->getSamples();
+    }
+    return 0;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1audioPush(JNIEnv *env, jobject thiz,
+                                                        jbyteArray bytes) {
+    if (!videoChannel || !readyPushing) {
+        return;
+    }
+    if(audioChannel){
+        jbyte *data = env->GetByteArrayElements(bytes, NULL);
+        audioChannel->encodeData(data);
+        env->ReleaseByteArrayElements(bytes, data, 0);
+    }
 }
 
 extern "C"

@@ -155,11 +155,4 @@ public class VideoChannel implements Preview.OnPreviewOutputUpdateListener, Imag
     public void setLivePushInterface(LivePushInterface livePushInterface){
         this.livePushInterface = livePushInterface;
     }
-
-    public interface LivePushInterface{
-
-        void setVideoEncInfo(int width, int height, int fps, int bitrate);
-        void pushVideo(byte[] data);
-
-    }
 }

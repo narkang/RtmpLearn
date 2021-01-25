@@ -1,7 +1,6 @@
 package com.example.rtmplearn;
 
 import android.util.Log;
-import android.view.SurfaceHolder;
 import android.view.TextureView;
 
 import androidx.lifecycle.LifecycleOwner;
@@ -17,24 +16,37 @@ public class LivePusher {
     private AudioChannel audioChannel;
     private VideoChannel videoChannel;
 
-    public LivePusher(LifecycleOwner lifecycleOwner, int width, int height, int bitrate,
+    public LivePusher(LifecycleOwner lifecycleOwner, int width, int height, int bitrate, int sampleRate,
                       int fps, TextureView textureView) {
-        native_init();
+        native_init(sampleRate, 1);
         videoChannel = new VideoChannel(lifecycleOwner, textureView, width, height, bitrate, fps);
-        audioChannel = new AudioChannel();
 
-        videoChannel.setLivePushInterface(new VideoChannel.LivePushInterface() {
-            @Override
-            public void setVideoEncInfo(int width, int height, int fps, int bitrate) {
-                native_setVideoEncInfo(width, height, fps, bitrate);
-            }
+        videoChannel.setLivePushInterface(livePushInterface);
 
-            @Override
-            public void pushVideo(byte[] data) {
-                native_pushVideo(data);
-            }
-        });
+        audioChannel = new AudioChannel(livePushInterface, sampleRate);
     }
+
+    private LivePushInterface livePushInterface = new LivePushInterface() {
+        @Override
+        public void setVideoEncInfo(int width, int height, int fps, int bitrate) {
+            native_setVideoEncInfo(width, height, fps, bitrate);
+        }
+
+        @Override
+        public void pushVideo(byte[] data) {
+            native_pushVideo(data);
+        }
+
+        @Override
+        public int audioGetSamples() {
+            return native_audioGetSamples();
+        }
+
+        @Override
+        public void audioPush(byte[] bytes) {
+            native_audioPush(bytes);
+        }
+    };
 
     public void switchCamera() {
         videoChannel.switchCamera();
@@ -59,12 +71,12 @@ public class LivePusher {
     //jni回调java层的方法
     private void postData(byte[] data) {
 
-        Log.e("ruby", "java端收到数据：" + FileUtils.byteToString(data));
+        FileUtils.byteToString(data);
 //        Log.e("ruby", FileUtils.byteToString(data));
 
     }
 
-    public native void native_init();
+    public native void native_init(int sampleRate, int channels);
 
     public native void native_setVideoEncInfo(int width, int height, int fps, int bitrate);
 
@@ -73,5 +85,10 @@ public class LivePusher {
     public native void native_pushVideo(byte[] data);
 
     public native void native_stop();
+
+    public native int native_audioGetSamples();
+
+    public native void native_audioPush(byte[] bytes);
+
 }
 

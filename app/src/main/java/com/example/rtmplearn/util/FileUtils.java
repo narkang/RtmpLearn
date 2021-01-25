@@ -70,7 +70,7 @@ public class FileUtils {
             sb.append(HEX_CHAR_TABLE[(b & 0xf0) >> 4]);
             sb.append(HEX_CHAR_TABLE[b & 0x0f]);
         }
-//        Log.i("ruby", "writeContent: " + sb.toString());
+        Log.i("ruby", "writeContent: " + sb.toString());
         return sb.toString();
     }
 

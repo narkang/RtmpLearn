@@ -18,6 +18,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.TextView;
 
+//https://github.com/xhunmon/RtmpPush
 public class MainActivity extends AppCompatActivity {
 
     private LivePusher livePusher;
@@ -30,16 +31,19 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         TextureView textureView = findViewById(R.id.textureView);
         checkPermission();
-        livePusher = new LivePusher(this, 480, 640, 800_000, 10, textureView);
+        livePusher = new LivePusher(this, 480, 640, 800_000, 44100, 10, textureView);
     }
 
     public boolean checkPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{
                     Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.CAMERA
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO
             }, 1);
 
         }
