@@ -20,7 +20,7 @@ public:
     void setAudioCallback(AudioCallback callback);
     u_long getSamples();
     RTMPPacket* getAudioConfig();
-    void encodeData(int8_t *data);
+    void encodeData(int8_t *data, int len);
 
 private:
     AudioCallback callback;

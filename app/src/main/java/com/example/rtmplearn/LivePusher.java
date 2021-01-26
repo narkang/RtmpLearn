@@ -23,7 +23,7 @@ public class LivePusher {
 
         videoChannel.setLivePushInterface(livePushInterface);
 
-        audioChannel = new AudioChannel(livePushInterface, sampleRate);
+        audioChannel = new AudioChannel(livePushInterface, sampleRate, 2);
     }
 
     private LivePushInterface livePushInterface = new LivePushInterface() {
@@ -43,8 +43,8 @@ public class LivePusher {
         }
 
         @Override
-        public void audioPush(byte[] bytes) {
-            native_audioPush(bytes);
+        public void audioPush(byte[] bytes, int len) {
+            native_audioPush(bytes, len);
         }
     };
 
@@ -88,7 +88,7 @@ public class LivePusher {
 
     public native int native_audioGetSamples();
 
-    public native void native_audioPush(byte[] bytes);
+    public native void native_audioPush(byte[] bytes, int len);
 
 }
 

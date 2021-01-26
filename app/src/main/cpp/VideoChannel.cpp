@@ -93,7 +93,6 @@ void VideoChannel::encodeData(int8_t *data) {
     if (pi_nal > 0) {
         for (int i = 0; i < pi_nal; ++i) {
             //p_payload 编码好的数据 i_payload 编码出来一帧数据长度
-            LOGI("输出索引:  %d  输出长度 %d", i, pi_nal);
 //            javaCallHelper->postH264(reinterpret_cast<char *>(pp_nals[i].p_payload),
 //                                     pp_nals[i].i_payload, THREAD_CHILD);
 

@@ -19,7 +19,6 @@ void AudioChannel::init(int sampleRate, int channels) {
 
     //2.设置编码器参数
     faacEncConfigurationPtr config = faacEncGetCurrentConfiguration(audioCodec);
-//    config->mpegVersion = MPEG2;
     config->mpegVersion = MPEG4;
     //lc 标准
     config->aacObjectType = LOW;
@@ -61,12 +60,11 @@ RTMPPacket *AudioChannel::getAudioConfig() {
     return packet;
 }
 
-void AudioChannel::encodeData(int8_t *data) {
+void AudioChannel::encodeData(int8_t *data, int len) {
     //3.进行编码
     //1：FAAC的handle；2：采集的pcm的原始数据；3：从faacEncOpen获取的inputSamples；4：至少有从faacEncOpen获取maxOutputBytes大小的缓冲区；5：从faacEncOpen获取maxOutputBytes
     //返回值为编码后数据字节的长度
-    LOGI("encodeData 开始编码音频数据");
-    int bytelen = faacEncEncode(audioCodec, reinterpret_cast<int32_t *>(data), inputSamples, buffer,
+    int bytelen = faacEncEncode(audioCodec, reinterpret_cast<int32_t *>(data), len, buffer,
                                 maxOutputBytes);
 
     if (bytelen > 0) {
@@ -90,7 +88,7 @@ void AudioChannel::encodeData(int8_t *data) {
         packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
 
         if(callback){
-            LOGI("发送数据");
+            LOGI("发送音频数据");
             callback(packet);
         }
     }

@@ -100,7 +100,6 @@ void *start(void *arg) {
         //循环从队列取包 然后发送
         while (isStart) {
             packets.pop(packet);
-            LOGI("收到编码好的数据了");
             if (!isStart) {
                 break;
             }
@@ -196,13 +195,13 @@ Java_com_example_rtmplearn_LivePusher_native_1audioGetSamples(JNIEnv *env, jobje
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1audioPush(JNIEnv *env, jobject thiz,
-                                                        jbyteArray bytes) {
+                                                        jbyteArray bytes, jint len) {
     if (!videoChannel || !readyPushing) {
         return;
     }
     if(audioChannel){
         jbyte *data = env->GetByteArrayElements(bytes, NULL);
-        audioChannel->encodeData(data);
+        audioChannel->encodeData(data, len);
         env->ReleaseByteArrayElements(bytes, data, 0);
     }
 }

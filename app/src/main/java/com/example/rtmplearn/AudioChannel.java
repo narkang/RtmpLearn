@@ -17,15 +17,19 @@ public class AudioChannel {
     private final ExecutorService executor;
     private boolean isPushing = false;
     private LivePushInterface livePushInterface;
+    private int channelConfig;
 
-    public AudioChannel(LivePushInterface livePushInterface, int sampleRate){
+    public AudioChannel(LivePushInterface livePushInterface, int sampleRate, int channels){
 
         this.livePushInterface = livePushInterface;
 
         executor = Executors.newSingleThreadExecutor();
 
+        channelConfig = channels == 2 ? AudioFormat.CHANNEL_IN_STEREO :
+                AudioFormat.CHANNEL_IN_MONO;
+
         minBufferSize = AudioRecord.getMinBufferSize(sampleRate,
-                AudioFormat.CHANNEL_IN_STEREO,
+                channelConfig,
                 AudioFormat.ENCODING_PCM_16BIT);
 
         int audioGetSamples = livePushInterface.audioGetSamples() * 2;
@@ -34,7 +38,7 @@ public class AudioChannel {
 
         audioRecord = new AudioRecord(
                 MediaRecorder.AudioSource.MIC, sampleRate,
-                AudioFormat.CHANNEL_IN_STEREO,
+                channelConfig,
                 AudioFormat.ENCODING_PCM_16BIT, minBufferSize);
     }
 
@@ -57,13 +61,14 @@ public class AudioChannel {
         public void run() {
             //启动录音机
             audioRecord.startRecording();
-            byte[] bytes = new byte[minBufferSize];
+            byte[] bytes = new byte[livePushInterface.audioGetSamples() * 2];
             while (isPushing) {
                 int len = audioRecord.read(bytes, 0, bytes.length);
                 if (len > 0) {
                     if(livePushInterface != null){
 //                        FileUtils.byteToString(bytes);
-                        livePushInterface.audioPush(bytes);
+                        //一个样本数 两个字节
+                        livePushInterface.audioPush(bytes, len>>1);
                     }
                 }
             }
