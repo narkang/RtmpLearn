@@ -76,7 +76,7 @@ void AudioChannel::encodeData(int8_t *data, int len) {
 
     if (bytelen > 0) {
 
-        javaCallHelper->postAAC(buffer, bytelen, THREAD_CHILD);
+//        javaCallHelper->postAAC(buffer, bytelen, THREAD_CHILD);
 
         int bodySize = 2 + bytelen;
         RTMPPacket *packet = new RTMPPacket;

@@ -27,7 +27,7 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
         jniEnv->SetByteArrayRegion(array, 0, length, reinterpret_cast<const jbyte *>(data));
 
         jniEnv->CallVoidMethod(jobj, jmid_postH264Data, array);
-
+        jniEnv->DeleteLocalRef(array);
 //        javaVM->DetachCurrentThread();
     } else {
 
@@ -44,7 +44,6 @@ void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
 
     if (thread == THREAD_CHILD) {
         JNIEnv *jniEnv;
-        bool isAttached = false;
         //子线程需要先绑定jniEnv
         if (javaVM->AttachCurrentThread(&jniEnv, 0) != JNI_OK) {
             return;
@@ -55,6 +54,7 @@ void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
         jniEnv->SetByteArrayRegion(array, 0, length, reinterpret_cast<const jbyte *>(data));
 
         jniEnv->CallVoidMethod(jobj, jmid_postAACData, array);
+        jniEnv->DeleteLocalRef(array);
 
 //        javaVM->DetachCurrentThread();
     } else {
