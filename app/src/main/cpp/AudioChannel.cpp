@@ -62,19 +62,29 @@ RTMPPacket *AudioChannel::getAudioConfig() {
 
 void AudioChannel::encodeData(int8_t *data, int len) {
     //3.进行编码
-    //1：FAAC的handle；2：采集的pcm的原始数据；3：从faacEncOpen获取的inputSamples；4：至少有从faacEncOpen获取maxOutputBytes大小的缓冲区；5：从faacEncOpen获取maxOutputBytes
+
+    //  1：FAAC的handle；
+    // 2：采集的pcm的原始数据；
+    // 3：从faacEncOpen获取的inputSamples；
+    // 4：至少有从faacEncOpen获取maxOutputBytes大小的缓冲区；
+    // 5：从faacEncOpen获取maxOutputBytes
+
     //返回值为编码后数据字节的长度
     int bytelen = faacEncEncode(audioCodec, reinterpret_cast<int32_t *>(data), len, buffer,
                                 maxOutputBytes);
 
+
     if (bytelen > 0) {
+
+        javaCallHelper->postAAC(buffer, bytelen, THREAD_CHILD);
+
         int bodySize = 2 + bytelen;
         RTMPPacket *packet = new RTMPPacket;
         RTMPPacket_Alloc(packet, bodySize);
         if (channels == 1) {
             packet->m_body[0] = 0xAE;   //单声道
         } else {
-            packet->m_body[0] = 0xAF;    //双声道
+            packet->m_body[0] = 0xAF;   //双声道
         }
         //编码出的声音 都是 0x01
         packet->m_body[1] = 0x01;
@@ -88,7 +98,6 @@ void AudioChannel::encodeData(int8_t *data, int len) {
         packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
 
         if(callback){
-            LOGI("发送音频数据");
             callback(packet);
         }
     }
@@ -96,4 +105,19 @@ void AudioChannel::encodeData(int8_t *data, int len) {
 
 void AudioChannel::setAudioCallback(AudioCallback callback) {
     this->callback = callback;
+}
+
+AudioChannel::AudioChannel() {
+
+}
+
+AudioChannel::~AudioChannel() {
+    if(audioCodec){
+        faacEncClose(audioCodec);
+        audioCodec = 0;
+    }
+    if(buffer){
+        free(buffer);
+        buffer = 0;
+    }
 }

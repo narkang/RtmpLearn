@@ -6,7 +6,6 @@
 #include "VideoChannel.h"
 #include "log.h"
 
-
 void VideoChannel::setVideoEncInfo(int width, int height, int fps, int bitrate) {
 
     LOGI("width = %d , height = %d", width, height);
@@ -181,7 +180,7 @@ void VideoChannel::sendFrame(int type, int payload, uint8_t *p_payload) {
     packet->m_body[0] = 0x27;
     //关键帧
     if (type == NAL_SLICE_IDR) {
-        LOGI("关键帧");
+        LOGI("音频关键帧");
         packet->m_body[0] = 0x17;
     }
     //类型

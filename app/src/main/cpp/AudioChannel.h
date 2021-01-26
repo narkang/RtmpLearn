@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <faac.h>
 #include <faaccfg.h>
+#include "JavaCallHelper.h"
 
 extern "C" {
 #include  "librtmp/rtmp.h"
@@ -22,6 +23,9 @@ public:
     RTMPPacket* getAudioConfig();
     void encodeData(int8_t *data, int len);
 
+    AudioChannel();
+    ~AudioChannel();
+
 private:
     AudioCallback callback;
     u_long inputSamples;
@@ -29,6 +33,9 @@ private:
     u_long maxOutputBytes;
     int channels;
     u_char *buffer = 0;
+
+public:
+    JavaCallHelper *javaCallHelper;
 };
 
 

@@ -52,10 +52,6 @@ public class LivePusher {
         videoChannel.switchCamera();
     }
 
-    private void onPrepare(boolean isConnect) {
-        //通知UI
-    }
-
     public void startLive(String path) {
         native_start(path);
         videoChannel.startLive();
@@ -63,16 +59,23 @@ public class LivePusher {
     }
 
     public void stopLive(){
+        native_stop();
         videoChannel.stopLive();
         audioChannel.stopLive();
-        native_stop();
     }
 
     //jni回调java层的方法
-    private void postData(byte[] data) {
+    private void postH264Data(byte[] data) {
 
+        Log.e("ruby", "postH264Data 编码好的视频数据");
         FileUtils.byteToString(data);
-//        Log.e("ruby", FileUtils.byteToString(data));
+
+    }
+
+    private void postAACData(byte[] data) {
+
+        Log.e("ruby", "postAACData 编码好的音频数据");
+        FileUtils.byteToString(data);
 
     }
 
@@ -84,11 +87,12 @@ public class LivePusher {
 
     public native void native_pushVideo(byte[] data);
 
-    public native void native_stop();
-
     public native int native_audioGetSamples();
 
     public native void native_audioPush(byte[] bytes, int len);
 
+    public native void native_stop();
+
+    public native void native_release();
 }
 

@@ -6,6 +6,8 @@
 #define RTMPLEARN_JAVACALLHELPER_H
 
 #include <jni.h>
+#include <sys/types.h>
+#include "log.h"
 
 //标记线程 因为子线程需要attach
 #define THREAD_MAIN 1
@@ -21,11 +23,14 @@ public:
 
     void postH264(char *data,int length, int thread = THREAD_MAIN);
 
+    void postAAC(u_char *data,int length, int thread = THREAD_MAIN);
+
 public:
     JavaVM *javaVM;
     JNIEnv *env;
     jobject jobj;
-    jmethodID jmid_postData;
+    jmethodID jmid_postH264Data;
+    jmethodID jmid_postAACData;
 
 };
 

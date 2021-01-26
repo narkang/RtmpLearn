@@ -15,9 +15,9 @@ extern "C" {
 VideoChannel *videoChannel = 0;
 AudioChannel *audioChannel = 0;
 JavaCallHelper *helper = 0;
-int isStart = 0;
 //记录子线程的对象
 pthread_t pid;
+int isStart = 0;
 //推流标志位
 int readyPushing = 0;
 //阻塞式队列
@@ -136,6 +136,7 @@ Java_com_example_rtmplearn_LivePusher_native_1init(JNIEnv *env, jobject thiz, ji
 
     audioChannel = new AudioChannel;
     audioChannel->init(sampleRate, channels);
+    audioChannel->javaCallHelper = helper;
     //设置回调
     videoChannel->setVideoCallback(callback);
     audioChannel->setAudioCallback(callback);
@@ -160,7 +161,7 @@ Java_com_example_rtmplearn_LivePusher_native_1start(JNIEnv *env, jobject thiz, j
     }
 
     //传NULL和0都是一样的，此时是一个引用，如果传非0，内部会malloc，此时需要手动释放
-    const char *path = env->GetStringUTFChars(path_, NULL);
+    const char *path = env->GetStringUTFChars(path_, 0);
     char *url = new char[strlen(path) + 1];
     strcpy(url, path);
 
@@ -196,7 +197,7 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1audioPush(JNIEnv *env, jobject thiz,
                                                         jbyteArray bytes, jint len) {
-    if (!videoChannel || !readyPushing) {
+    if (!audioChannel || !readyPushing) {
         return;
     }
     if(audioChannel){
@@ -210,6 +211,17 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_rtmplearn_LivePusher_native_1stop(JNIEnv *env, jobject thiz) {
 
+    isStart = 0;
+    readyPushing = 0;
+
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_rtmplearn_LivePusher_native_1release(JNIEnv *env, jobject thiz) {
+
+    isStart = 0;
+    readyPushing = 0;
+
     if(rtmp) {
         RTMP_Close(rtmp);
         RTMP_Free(rtmp);
@@ -218,6 +230,10 @@ Java_com_example_rtmplearn_LivePusher_native_1stop(JNIEnv *env, jobject thiz) {
     if (videoChannel) {
         delete (videoChannel);
         videoChannel = 0;
+    }
+    if(audioChannel){
+        delete (audioChannel);
+        audioChannel = 0;
     }
     if (helper) {
         delete (helper);
