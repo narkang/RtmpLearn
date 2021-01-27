@@ -17,8 +17,27 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
 
     if (thread == THREAD_CHILD) {
         JNIEnv *jniEnv;
+        JavaVMAttachArgs jvmArgs;
+        jvmArgs.version = JNI_VERSION_1_6;
         //子线程需要先绑定jniEnv
-        if (javaVM->AttachCurrentThread(&jniEnv, 0) != JNI_OK) {
+        int attachedHere = 0;
+        jint res = javaVM->GetEnv((void**)&jniEnv, JNI_VERSION_1_6); //checks if current env needs attaching or it is already attached
+        LOGI("postAAC res = %d", res);
+        if(JNI_EDETACHED == res){
+            // Supported but not attached yet, needs to call AttachCurrentThread
+            if (javaVM->AttachCurrentThread(&jniEnv, &jvmArgs) != JNI_OK) {
+                return;
+            }
+            LOGI("postAAC 1");
+            attachedHere = 1;
+        }
+        else if(JNI_OK == res){
+            // Current thread already attached, do not attach 'again' (just to save the attachedHere flag)
+            // We make sure to keep attachedHere = 0
+            LOGI("postAAC 2");
+        }else{
+            // JNI_EVERSION, specified version is not supported cancel this..
+            LOGI("postAAC 3");
             return;
         }
 
@@ -28,7 +47,12 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
 
         jniEnv->CallVoidMethod(jobj, jmid_postH264Data, array);
         jniEnv->DeleteLocalRef(array);
-//        javaVM->DetachCurrentThread();
+        LOGI("postAAC 4");
+
+        if(attachedHere){
+            LOGI("postAAC 5");
+            javaVM->DetachCurrentThread(); // Done only when attachment was done here
+        }
     } else {
 
         jbyteArray array = env->NewByteArray(length);
@@ -40,12 +64,32 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
 
 }
 
+//https://cloud.tencent.com/developer/ask/170239
 void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
 
     if (thread == THREAD_CHILD) {
         JNIEnv *jniEnv;
+        JavaVMAttachArgs jvmArgs;
+        jvmArgs.version = JNI_VERSION_1_6;
         //子线程需要先绑定jniEnv
-        if (javaVM->AttachCurrentThread(&jniEnv, 0) != JNI_OK) {
+        int attachedHere = 0;
+        jint res = javaVM->GetEnv((void**)&jniEnv, JNI_VERSION_1_6); //checks if current env needs attaching or it is already attached
+        LOGI("postAAC res = %d", res);
+        if(JNI_EDETACHED == res){
+            // Supported but not attached yet, needs to call AttachCurrentThread
+            if (javaVM->AttachCurrentThread(&jniEnv, &jvmArgs) != JNI_OK) {
+                return;
+            }
+            LOGI("postAAC 1");
+            attachedHere = 1;
+        }
+        else if(JNI_OK == res){
+            // Current thread already attached, do not attach 'again' (just to save the attachedHere flag)
+            // We make sure to keep attachedHere = 0
+            LOGI("postAAC 2");
+        }else{
+            // JNI_EVERSION, specified version is not supported cancel this..
+            LOGI("postAAC 3");
             return;
         }
 
@@ -55,11 +99,14 @@ void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
 
         jniEnv->CallVoidMethod(jobj, jmid_postAACData, array);
         jniEnv->DeleteLocalRef(array);
+        LOGI("postAAC 4");
 
-//        javaVM->DetachCurrentThread();
+        if(attachedHere){
+            LOGI("postAAC 5");
+            javaVM->DetachCurrentThread(); // Done only when attachment was done here
+        }
     } else {
         //主线程不需要绑定
-
         jbyteArray array = env->NewByteArray(length);
         env->SetByteArrayRegion(array, 0, length, reinterpret_cast<const jbyte *>(data));
         env->CallVoidMethod(jobj, jmid_postAACData, array);

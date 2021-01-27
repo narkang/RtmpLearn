@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.TextView;
 
 //https://github.com/xhunmon/RtmpPush
+//https://glumes.com/post/android/android-jni-thread-operation/
 public class MainActivity extends AppCompatActivity {
 
     private LivePusher livePusher;

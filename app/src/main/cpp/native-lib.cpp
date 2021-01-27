@@ -31,7 +31,7 @@ RTMP *rtmp = 0;
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     javaVM = vm;
     LOGI("保存虚拟机的引用");
-    return JNI_VERSION_1_4;
+    return JNI_VERSION_1_6;
 }
 
 void releasePackets(RTMPPacket *&packet) {
