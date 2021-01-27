@@ -28,16 +28,13 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
             if (javaVM->AttachCurrentThread(&jniEnv, &jvmArgs) != JNI_OK) {
                 return;
             }
-            LOGI("postAAC 1");
             attachedHere = 1;
         }
         else if(JNI_OK == res){
             // Current thread already attached, do not attach 'again' (just to save the attachedHere flag)
             // We make sure to keep attachedHere = 0
-            LOGI("postAAC 2");
         }else{
             // JNI_EVERSION, specified version is not supported cancel this..
-            LOGI("postAAC 3");
             return;
         }
 
@@ -47,10 +44,8 @@ void JavaCallHelper::postH264(char *data, int length, int thread) {
 
         jniEnv->CallVoidMethod(jobj, jmid_postH264Data, array);
         jniEnv->DeleteLocalRef(array);
-        LOGI("postAAC 4");
 
         if(attachedHere){
-            LOGI("postAAC 5");
             javaVM->DetachCurrentThread(); // Done only when attachment was done here
         }
     } else {
@@ -80,16 +75,13 @@ void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
             if (javaVM->AttachCurrentThread(&jniEnv, &jvmArgs) != JNI_OK) {
                 return;
             }
-            LOGI("postAAC 1");
             attachedHere = 1;
         }
         else if(JNI_OK == res){
             // Current thread already attached, do not attach 'again' (just to save the attachedHere flag)
             // We make sure to keep attachedHere = 0
-            LOGI("postAAC 2");
         }else{
             // JNI_EVERSION, specified version is not supported cancel this..
-            LOGI("postAAC 3");
             return;
         }
 
@@ -99,10 +91,8 @@ void JavaCallHelper::postAAC(u_char *data, int length, int thread) {
 
         jniEnv->CallVoidMethod(jobj, jmid_postAACData, array);
         jniEnv->DeleteLocalRef(array);
-        LOGI("postAAC 4");
 
         if(attachedHere){
-            LOGI("postAAC 5");
             javaVM->DetachCurrentThread(); // Done only when attachment was done here
         }
     } else {
